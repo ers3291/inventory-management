@@ -22,6 +22,7 @@
         <h1 class="topbar-title">{{ pageTitle }}</h1>
         <div class="topbar-actions">
           <LanguageSwitcher />
+          <ThemeToggle />
           <ProfileMenu
             :pending-task-count="pendingTaskCount"
             @show-profile-details="showProfileDetails = true"
@@ -67,6 +68,7 @@ import ProfileMenu from './components/ProfileMenu.vue'
 import ProfileDetailsModal from './components/ProfileDetailsModal.vue'
 import TasksModal from './components/TasksModal.vue'
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
+import ThemeToggle from './components/ThemeToggle.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import { navItems } from './navigation'
 
@@ -78,6 +80,7 @@ export default {
     ProfileDetailsModal,
     TasksModal,
     LanguageSwitcher,
+    ThemeToggle,
     AppSidebar
   },
   setup() {

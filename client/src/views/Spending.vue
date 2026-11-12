@@ -502,7 +502,7 @@ export default {
   --chart-operational: var(--color-chart-violet);
   --chart-labor: var(--color-success);
   --chart-overhead: var(--color-warning);
-  --chart-revenue: var(--color-text);
+  --chart-revenue: var(--color-chart-neutral);
   --chart-costs: var(--color-danger);
 }
 

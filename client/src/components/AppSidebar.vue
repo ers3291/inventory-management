@@ -264,7 +264,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     display: block;
     position: fixed;
     inset: 0;
-    background: rgb(15 23 42 / 0.45);
+    background: var(--color-overlay);
     z-index: var(--z-overlay);
   }
   .sidebar { z-index: calc(var(--z-overlay) + 1); }
