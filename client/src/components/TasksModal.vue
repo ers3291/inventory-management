@@ -13,6 +13,9 @@
           </div>
 
           <div class="modal-body">
+            <!-- Server/network failures for add, toggle and delete; uses the global .error block -->
+            <div v-if="error" class="error" role="alert">{{ error }}</div>
+
             <!-- Add Task Form -->
             <div class="task-form">
               <div class="form-row">
@@ -54,8 +57,8 @@
                 </div>
 
                 <div class="form-group-btn">
-                  <button @click="handleAddTask" type="button" class="btn btn-primary" :disabled="!newTask.title.trim() || !newTask.dueDate">
-                    {{ t('tasks.addTask') }}
+                  <button @click="handleAddTask" type="button" class="btn btn-primary" :disabled="saving || !newTask.title.trim() || !newTask.dueDate">
+                    {{ saving ? t('tasks.adding') : t('tasks.addTask') }}
                   </button>
                 </div>
               </div>
@@ -120,7 +123,7 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from '../composables/useI18n'
 
 export default {
@@ -133,6 +136,16 @@ export default {
     tasks: {
       type: Array,
       default: () => []
+    },
+    // True while the parent is creating a task on the server
+    saving: {
+      type: Boolean,
+      default: false
+    },
+    // Localized error message from the parent, or null
+    error: {
+      type: String,
+      default: null
     }
   },
   emits: ['close', 'add-task', 'delete-task', 'toggle-task'],
@@ -154,19 +167,29 @@ export default {
     }
 
     const handleAddTask = () => {
+      // Guard here too: Enter in the title field bypasses the disabled button
+      if (props.saving) return
       if (newTask.value.title.trim() && newTask.value.dueDate) {
         emit('add-task', {
           title: newTask.value.title.trim(),
           priority: newTask.value.priority,
           dueDate: newTask.value.dueDate
         })
+      }
+    }
+
+    // The parent owns the request, so the form is only cleared once it reports the
+    // outcome: saving flips back to false with no error = success. On failure the
+    // values stay so the user can correct and resubmit.
+    watch(() => props.saving, (isSaving, wasSaving) => {
+      if (wasSaving && !isSaving && !props.error) {
         newTask.value = {
           title: '',
           priority: 'medium',
           dueDate: ''
         }
       }
-    }
+    })
 
     const formatDueDate = (dateString) => {
       const date = new Date(dateString)
@@ -247,6 +270,11 @@ export default {
 
 <style scoped>
 /* Overlay, panel, buttons and .form-control come from src/styles/modal.css */
+
+/* Global .error block; drop its top margin so it sits flush with the modal body padding */
+.error {
+  margin-top: 0;
+}
 
 /* ---------- Add task form ---------- */
 .task-form {

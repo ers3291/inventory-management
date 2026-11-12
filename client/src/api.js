@@ -2,6 +2,15 @@ import axios from 'axios'
 
 const API_BASE_URL = 'http://localhost:8001/api'
 
+// Turn the global filter bar state into query params, skipping any filter left at 'all'
+const buildFilterParams = (filters = {}) => {
+  const params = new URLSearchParams()
+  for (const key of ['warehouse', 'category', 'status', 'month']) {
+    if (filters[key] && filters[key] !== 'all') params.append(key, filters[key])
+  }
+  return params
+}
+
 export const api = {
   async getInventory(filters = {}) {
     const params = new URLSearchParams()
@@ -96,6 +105,16 @@ export const api = {
 
   async createPurchaseOrder(purchaseOrderData) {
     const response = await axios.post(`${API_BASE_URL}/purchase-orders`, purchaseOrderData)
+    return response.data
+  },
+
+  async getQuarterlyReports(filters = {}) {
+    const response = await axios.get(`${API_BASE_URL}/reports/quarterly?${buildFilterParams(filters).toString()}`)
+    return response.data
+  },
+
+  async getMonthlyTrends(filters = {}) {
+    const response = await axios.get(`${API_BASE_URL}/reports/monthly-trends?${buildFilterParams(filters).toString()}`)
     return response.data
   },
 

@@ -23,6 +23,7 @@
         <div class="topbar-actions">
           <LanguageSwitcher />
           <ProfileMenu
+            :pending-task-count="pendingTaskCount"
             @show-profile-details="showProfileDetails = true"
             @show-tasks="showTasks = true"
           />
@@ -45,7 +46,9 @@
     <TasksModal
       :is-open="showTasks"
       :tasks="tasks"
-      @close="showTasks = false"
+      :saving="savingTask"
+      :error="taskError"
+      @close="closeTasks"
       @add-task="addTask"
       @delete-task="deleteTask"
       @toggle-task="toggleTask"
@@ -78,11 +81,15 @@ export default {
     AppSidebar
   },
   setup() {
-    const { currentUser } = useAuth()
+    const { currentUser, isMockTask, toggleMockTask, deleteMockTask } = useAuth()
     const { t } = useI18n()
     const showProfileDetails = ref(false)
     const showTasks = ref(false)
     const apiTasks = ref([])
+    // Task modal feedback: savingTask disables the Add button while a create is in flight;
+    // taskError is shown inline in the modal for any failed load/add/toggle/delete
+    const savingTask = ref(false)
+    const taskError = ref(null)
 
     // Shell layout state (sidebar rail collapse on desktop, off-canvas drawer below 1024px)
     const route = useRoute()
@@ -100,68 +107,88 @@ export default {
       mobileNavOpen.value = false
     })
 
-    // Merge mock tasks from currentUser with API tasks
+    // Merge API tasks (newest first) ahead of the built-in demo tasks, so a newly
+    // added task shows at the top of the modal
     const tasks = computed(() => {
-      return [...currentUser.value.tasks, ...apiTasks.value]
+      return [...apiTasks.value, ...currentUser.value.tasks]
     })
+
+    // Badge count in the profile menu covers every pending task shown in the modal
+    const pendingTaskCount = computed(() => {
+      return tasks.value.filter(task => task.status === 'pending').length
+    })
+
+    // Localized message, plus the server's `detail` when it is a plain string
+    // (FastAPI 400/404 responses); validation arrays and network errors get the generic text
+    const describeTaskError = (err, key) => {
+      const detail = err?.response?.data?.detail
+      return typeof detail === 'string' ? `${t(key)}: ${detail}` : t(key)
+    }
+
+    const closeTasks = () => {
+      showTasks.value = false
+      taskError.value = null
+    }
 
     const loadTasks = async () => {
       try {
-        apiTasks.value = await api.getTasks()
+        // Server ids increase with creation, so sorting by id desc gives newest first,
+        // matching the unshift order used by addTask
+        const loaded = await api.getTasks()
+        apiTasks.value = [...loaded].sort((a, b) => b.id - a.id)
       } catch (err) {
         console.error('Failed to load tasks:', err)
+        taskError.value = describeTaskError(err, 'tasks.errors.load')
       }
     }
 
     const addTask = async (taskData) => {
+      savingTask.value = true
+      taskError.value = null
       try {
         const newTask = await api.createTask(taskData)
         // Add new task to the beginning of the array
         apiTasks.value.unshift(newTask)
       } catch (err) {
         console.error('Failed to add task:', err)
+        taskError.value = describeTaskError(err, 'tasks.errors.add')
+      } finally {
+        // TasksModal watches this flip back to false and only clears its form when taskError is null
+        savingTask.value = false
       }
     }
 
     const deleteTask = async (taskId) => {
+      taskError.value = null
+      // Built-in demo tasks are client-side only; everything else lives on the server
+      if (isMockTask(taskId)) {
+        deleteMockTask(taskId)
+        return
+      }
       try {
-        // Check if it's a mock task (from currentUser)
-        const isMockTask = currentUser.value.tasks.some(t => t.id === taskId)
-
-        if (isMockTask) {
-          // Remove from mock tasks
-          const index = currentUser.value.tasks.findIndex(t => t.id === taskId)
-          if (index !== -1) {
-            currentUser.value.tasks.splice(index, 1)
-          }
-        } else {
-          // Remove from API tasks
-          await api.deleteTask(taskId)
-          apiTasks.value = apiTasks.value.filter(t => t.id !== taskId)
-        }
+        await api.deleteTask(taskId)
+        apiTasks.value = apiTasks.value.filter(t => t.id !== taskId)
       } catch (err) {
         console.error('Failed to delete task:', err)
+        taskError.value = describeTaskError(err, 'tasks.errors.delete')
       }
     }
 
     const toggleTask = async (taskId) => {
+      taskError.value = null
+      if (isMockTask(taskId)) {
+        toggleMockTask(taskId)
+        return
+      }
       try {
-        // Check if it's a mock task (from currentUser)
-        const mockTask = currentUser.value.tasks.find(t => t.id === taskId)
-
-        if (mockTask) {
-          // Toggle mock task status
-          mockTask.status = mockTask.status === 'pending' ? 'completed' : 'pending'
-        } else {
-          // Toggle API task
-          const updatedTask = await api.toggleTask(taskId)
-          const index = apiTasks.value.findIndex(t => t.id === taskId)
-          if (index !== -1) {
-            apiTasks.value[index] = updatedTask
-          }
+        const updatedTask = await api.toggleTask(taskId)
+        const index = apiTasks.value.findIndex(t => t.id === taskId)
+        if (index !== -1) {
+          apiTasks.value[index] = updatedTask
         }
       } catch (err) {
         console.error('Failed to toggle task:', err)
+        taskError.value = describeTaskError(err, 'tasks.errors.toggle')
       }
     }
 
@@ -175,6 +202,10 @@ export default {
       showProfileDetails,
       showTasks,
       tasks,
+      pendingTaskCount,
+      savingTask,
+      taskError,
+      closeTasks,
       addTask,
       deleteTask,
       toggleTask

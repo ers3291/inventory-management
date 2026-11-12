@@ -74,7 +74,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { useI18n } from '../composables/useI18n'
 
@@ -84,8 +84,13 @@ const { t } = useI18n()
 const isDropdownOpen = ref(false)
 const emit = defineEmits(['show-profile-details', 'show-tasks'])
 
-const pendingTaskCount = computed(() => {
-  return currentUser.value.tasks.filter(task => task.status === 'pending').length
+// Computed by App.vue from the merged built-in + API task list, so the badge
+// matches what the tasks modal shows
+defineProps({
+  pendingTaskCount: {
+    type: Number,
+    default: 0
+  }
 })
 
 const toggleDropdown = () => {

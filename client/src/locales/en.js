@@ -10,6 +10,7 @@ export default {
     collapseSidebar: 'Collapse sidebar',
     expandSidebar: 'Expand sidebar',
     reports: 'Reports',
+    backlog: 'Backlog',
     demandForecast: 'Demand Forecast',
     companyName: 'Catalyst Components',
     subtitle: 'Inventory Management System'
@@ -193,6 +194,71 @@ export default {
     }
   },
 
+  // Reports
+  reports: {
+    title: 'Performance Reports',
+    description: 'View quarterly performance metrics and monthly trends',
+    loading: 'Loading reports...',
+    loadError: 'Failed to load reports: {message}',
+    noData: 'No orders match the selected filters.',
+    notApplicable: 'N/A',
+    monthLabel: '{month} {year}',
+    quarterLabel: 'Q{quarter}-{year}',
+    quarterly: {
+      title: 'Quarterly Performance',
+      quarter: 'Quarter',
+      totalOrders: 'Total Orders',
+      totalRevenue: 'Total Revenue',
+      avgOrderValue: 'Avg Order Value',
+      fulfillmentRate: 'Fulfillment Rate'
+    },
+    monthlyTrend: {
+      title: 'Monthly Revenue Trend'
+    },
+    monthOverMonth: {
+      title: 'Month-over-Month Analysis',
+      month: 'Month',
+      orders: 'Orders',
+      revenue: 'Revenue',
+      change: 'Change',
+      growthRate: 'Growth Rate'
+    },
+    stats: {
+      totalRevenueYtd: 'Total Revenue (YTD)',
+      totalRevenuePeriod: 'Total Revenue (Selected Period)',
+      avgMonthlyRevenue: 'Avg Monthly Revenue',
+      totalOrdersYtd: 'Total Orders (YTD)',
+      totalOrdersPeriod: 'Total Orders (Selected Period)',
+      bestQuarter: 'Best Performing Quarter'
+    }
+  },
+
+  // Backlog
+  backlog: {
+    title: 'Backlog Management',
+    description: 'Track and resolve inventory shortages',
+    loading: 'Loading backlog...',
+    loadError: 'Failed to load backlog: {message}',
+    highPriority: 'High Priority',
+    mediumPriority: 'Medium Priority',
+    lowPriority: 'Low Priority',
+    totalItems: 'Total Backlog Items',
+    itemsTitle: 'Backlog Items',
+    empty: 'No backlog items - all orders can be fulfilled!',
+    table: {
+      orderId: 'Order ID',
+      sku: 'SKU',
+      itemName: 'Item Name',
+      quantityNeeded: 'Quantity Needed',
+      quantityAvailable: 'Quantity Available',
+      shortage: 'Shortage',
+      daysDelayed: 'Days Delayed',
+      priority: 'Priority'
+    },
+    unitsShort: '{count} units short',
+    days: '{count} days'
+  },
+
   // Filters
   filters: {
     timePeriod: 'Time Period',
@@ -306,7 +372,14 @@ export default {
     priority: 'Priority',
     dueDate: 'Due Date',
     addTask: 'Add Task',
-    noTasks: 'No tasks yet. Add your first task above!'
+    adding: 'Adding...',
+    noTasks: 'No tasks yet. Add your first task above!',
+    errors: {
+      load: 'Could not load tasks',
+      add: 'Could not add task',
+      toggle: 'Could not update task',
+      delete: 'Could not delete task'
+    }
   },
 
   // Language

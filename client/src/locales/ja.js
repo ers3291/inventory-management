@@ -10,6 +10,7 @@ export default {
     collapseSidebar: 'サイドバーを折りたたむ',
     expandSidebar: 'サイドバーを展開',
     reports: 'レポート',
+    backlog: 'バックログ',
     demandForecast: '需要予測',
     companyName: '触媒コンポーネンツ',
     subtitle: '在庫管理システム'
@@ -193,6 +194,71 @@ export default {
     }
   },
 
+  // Reports
+  reports: {
+    title: '業績レポート',
+    description: '四半期ごとの業績指標と月次推移を表示します',
+    loading: 'レポートを読み込み中...',
+    loadError: 'レポートの読み込みに失敗しました: {message}',
+    noData: '選択したフィルターに一致する注文はありません。',
+    notApplicable: '該当なし',
+    monthLabel: '{year}年{month}',
+    quarterLabel: '{year}年 第{quarter}四半期',
+    quarterly: {
+      title: '四半期業績',
+      quarter: '四半期',
+      totalOrders: '注文総数',
+      totalRevenue: '総売上',
+      avgOrderValue: '平均注文額',
+      fulfillmentRate: '出荷完了率'
+    },
+    monthlyTrend: {
+      title: '月次売上推移'
+    },
+    monthOverMonth: {
+      title: '前月比分析',
+      month: '月',
+      orders: '注文数',
+      revenue: '売上',
+      change: '増減額',
+      growthRate: '成長率'
+    },
+    stats: {
+      totalRevenueYtd: '総売上（年初来）',
+      totalRevenuePeriod: '総売上（選択期間）',
+      avgMonthlyRevenue: '月平均売上',
+      totalOrdersYtd: '注文総数（年初来）',
+      totalOrdersPeriod: '注文総数（選択期間）',
+      bestQuarter: '最も業績の良い四半期'
+    }
+  },
+
+  // Backlog
+  backlog: {
+    title: 'バックログ管理',
+    description: '在庫不足を追跡して解消します',
+    loading: 'バックログを読み込み中...',
+    loadError: 'バックログの読み込みに失敗しました: {message}',
+    highPriority: '優先度：高',
+    mediumPriority: '優先度：中',
+    lowPriority: '優先度：低',
+    totalItems: 'バックログ総数',
+    itemsTitle: 'バックログ項目',
+    empty: 'バックログはありません。すべての注文に対応できます。',
+    table: {
+      orderId: '注文ID',
+      sku: 'SKU',
+      itemName: '品名',
+      quantityNeeded: '必要数量',
+      quantityAvailable: '在庫数量',
+      shortage: '不足',
+      daysDelayed: '遅延日数',
+      priority: '優先度'
+    },
+    unitsShort: '{count}個不足',
+    days: '{count}日'
+  },
+
   // Filters
   filters: {
     timePeriod: '期間',
@@ -306,7 +372,14 @@ export default {
     priority: '優先度',
     dueDate: '期限',
     addTask: 'タスクを追加',
-    noTasks: 'タスクがありません。上記からタスクを追加してください！'
+    adding: '追加中...',
+    noTasks: 'タスクがありません。上記からタスクを追加してください！',
+    errors: {
+      load: 'タスクを読み込めませんでした',
+      add: 'タスクを追加できませんでした',
+      toggle: 'タスクを更新できませんでした',
+      delete: 'タスクを削除できませんでした'
+    }
   },
 
   // Language

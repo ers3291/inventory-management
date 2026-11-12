@@ -10,6 +10,7 @@ export const navSections = [
       { to: '/orders', label: 'Orders', labelKey: 'nav.orders', icon: 'cart' },
       { to: '/spending', label: 'Finance', labelKey: 'nav.finance', icon: 'wallet' },
       { to: '/demand', label: 'Demand Forecast', labelKey: 'nav.demandForecast', icon: 'trend' },
+      { to: '/backlog', label: 'Backlog', labelKey: 'nav.backlog', icon: 'list' },
       { to: '/reports', label: 'Reports', labelKey: 'nav.reports', icon: 'chart' }
     ]
   }

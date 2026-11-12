@@ -1,8 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from typing import List, Optional
 from datetime import date
 from pydantic import BaseModel
+import math
+import os
+import threading
 from mock_data import inventory_items, orders, demand_forecasts, backlog_items, spending_summary, monthly_spending, category_spending, recent_transactions, purchase_orders
 
 app = FastAPI(title="Factory Inventory Management System")
@@ -48,12 +52,24 @@ def apply_filters(items: list, warehouse: Optional[str] = None, category: Option
     return filtered
 
 # CORS middleware
+# Compress larger JSON responses (/api/orders is ~110 KB raw, ~13 KB gzipped)
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+# Only the frontend may call the API from a browser. A wildcard origin combined with
+# allow_credentials makes Starlette echo back *any* Origin, letting any website read the data
+# and create purchase orders on a running instance. Override with a comma-separated
+# ALLOWED_ORIGINS env var (e.g. for a second dev server on another port).
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,  # no cookies/auth yet; turn on only together with real authentication
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Content-Type"],
 )
 
 # Data models
@@ -122,6 +138,45 @@ class CreatePurchaseOrderRequest(BaseModel):
     expected_delivery_date: str
     notes: Optional[str] = None
 
+class Task(BaseModel):
+    id: int
+    title: str
+    priority: str
+    dueDate: str
+    status: str
+
+class CreateTaskRequest(BaseModel):
+    title: str
+    priority: str = "medium"
+    dueDate: str
+
+# Input limits for user-entered fields (requests are otherwise unbounded)
+MAX_SUPPLIER_NAME = 200
+MAX_NOTES = 2000
+MAX_TASK_TITLE = 200
+MAX_PO_QUANTITY = 1_000_000
+MAX_PO_UNIT_COST = 1_000_000.0
+TASK_PRIORITIES = {"high", "medium", "low"}
+
+# Tasks created through the API live in memory and reset on restart, like purchase orders.
+# IDs start at 1000 because the client merges these with built-in mock tasks numbered 1-4
+# and decides how to toggle/delete a task by its ID.
+tasks: List[dict] = []
+TASK_ID_START = 1000
+# Monotonic counter (not max(existing)+1) so a deleted task's ID is never handed out again
+_next_task_id = TASK_ID_START
+
+# Handlers are sync, so FastAPI runs them in a thread pool: guard check-then-append sequences
+# so concurrent requests can't create duplicate purchase orders or reuse an ID.
+_write_lock = threading.Lock()
+
+def _parse_iso_date(value: str, field: str) -> date:
+    """Parse a YYYY-MM-DD date or raise 400 with a clear message"""
+    try:
+        return date.fromisoformat(value)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail=f"{field} must be a date in YYYY-MM-DD format")
+
 # API endpoints
 @app.get("/")
 def root():
@@ -186,32 +241,48 @@ def get_backlog():
 @app.post("/api/purchase-orders", response_model=PurchaseOrder, status_code=201)
 def create_purchase_order(request: CreatePurchaseOrderRequest):
     """Create a purchase order for a backlog item (stored in memory only)"""
+    # Validate the body first so an invalid request gets a 400, not a misleading 404/409
+    supplier_name = request.supplier_name.strip()
+    if not supplier_name:
+        raise HTTPException(status_code=400, detail="Supplier name is required")
+    if len(supplier_name) > MAX_SUPPLIER_NAME:
+        raise HTTPException(status_code=400, detail=f"Supplier name must be at most {MAX_SUPPLIER_NAME} characters")
+    if not 0 < request.quantity <= MAX_PO_QUANTITY:
+        raise HTTPException(status_code=400, detail=f"Quantity must be between 1 and {MAX_PO_QUANTITY:,}")
+    # Python's JSON parser accepts NaN/Infinity, and NaN < 0 is False, so check finiteness explicitly
+    if not math.isfinite(request.unit_cost) or request.unit_cost < 0:
+        raise HTTPException(status_code=400, detail="Unit cost must be a non-negative number")
+    if request.unit_cost > MAX_PO_UNIT_COST:
+        raise HTTPException(status_code=400, detail=f"Unit cost must be at most {MAX_PO_UNIT_COST:,.0f}")
+    delivery = _parse_iso_date(request.expected_delivery_date, "Expected delivery date")
+    if delivery < date.today():
+        raise HTTPException(status_code=400, detail="Expected delivery date cannot be in the past")
+    notes = request.notes.strip() if request.notes else None
+    if notes and len(notes) > MAX_NOTES:
+        raise HTTPException(status_code=400, detail=f"Notes must be at most {MAX_NOTES} characters")
+
     if not any(item["id"] == request.backlog_item_id for item in backlog_items):
         raise HTTPException(status_code=404, detail="Backlog item not found")
-    # One PO per backlog item: the UI shows "View PO" once one exists, so a second is a conflict
-    if any(po["backlog_item_id"] == request.backlog_item_id for po in purchase_orders):
-        raise HTTPException(status_code=409, detail="Purchase order already exists for this backlog item")
-    if not request.supplier_name.strip():
-        raise HTTPException(status_code=400, detail="Supplier name is required")
-    if request.quantity <= 0:
-        raise HTTPException(status_code=400, detail="Quantity must be greater than zero")
-    if request.unit_cost < 0:
-        raise HTTPException(status_code=400, detail="Unit cost cannot be negative")
 
-    po = {
-        # Sequential IDs are safe because POs are never deleted
-        "id": f"PO-{len(purchase_orders) + 1:04d}",
-        "backlog_item_id": request.backlog_item_id,
-        "supplier_name": request.supplier_name.strip(),
-        "quantity": request.quantity,
-        "unit_cost": request.unit_cost,
-        "expected_delivery_date": request.expected_delivery_date,
-        "status": "Pending",
-        "created_date": date.today().isoformat(),
-        "notes": request.notes,
-    }
-    # Appending mutates the list shared with mock_data, so it resets when the server restarts
-    purchase_orders.append(po)
+    with _write_lock:
+        # One PO per backlog item: the UI shows "View PO" once one exists, so a second is a conflict.
+        # The check and the append happen under one lock so concurrent requests can't both pass it.
+        if any(po["backlog_item_id"] == request.backlog_item_id for po in purchase_orders):
+            raise HTTPException(status_code=409, detail="Purchase order already exists for this backlog item")
+        po = {
+            # Sequential IDs are safe: POs are never deleted and IDs are assigned under the lock
+            "id": f"PO-{len(purchase_orders) + 1:04d}",
+            "backlog_item_id": request.backlog_item_id,
+            "supplier_name": supplier_name,
+            "quantity": request.quantity,
+            "unit_cost": request.unit_cost,
+            "expected_delivery_date": delivery.isoformat(),
+            "status": "Pending",
+            "created_date": date.today().isoformat(),
+            "notes": notes or None,
+        }
+        # Appending mutates the list shared with mock_data, so it resets when the server restarts
+        purchase_orders.append(po)
     return po
 
 @app.get("/api/purchase-orders/{backlog_item_id}", response_model=PurchaseOrder)
@@ -221,6 +292,52 @@ def get_purchase_order_by_backlog_item(backlog_item_id: str):
     if not po:
         raise HTTPException(status_code=404, detail="Purchase order not found")
     return po
+
+@app.get("/api/tasks", response_model=List[Task])
+def get_tasks():
+    """Get tasks created through the API (built-in demo tasks live in the client)"""
+    return tasks
+
+@app.post("/api/tasks", response_model=Task, status_code=201)
+def create_task(request: CreateTaskRequest):
+    """Create a task (stored in memory only)"""
+    title = request.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Title is required")
+    if len(title) > MAX_TASK_TITLE:
+        raise HTTPException(status_code=400, detail=f"Title must be at most {MAX_TASK_TITLE} characters")
+    priority = request.priority.lower()
+    if priority not in TASK_PRIORITIES:
+        raise HTTPException(status_code=400, detail="Priority must be high, medium or low")
+    due = _parse_iso_date(request.dueDate, "Due date")
+
+    global _next_task_id
+    with _write_lock:
+        task_id = _next_task_id
+        _next_task_id += 1
+        task = {"id": task_id, "title": title, "priority": priority, "dueDate": due.isoformat(), "status": "pending"}
+        tasks.insert(0, task)  # newest first, matching how the client shows them
+    return task
+
+@app.patch("/api/tasks/{task_id}", response_model=Task)
+def toggle_task(task_id: int):
+    """Toggle a task between pending and completed"""
+    with _write_lock:
+        task = next((t for t in tasks if t["id"] == task_id), None)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        task["status"] = "completed" if task["status"] == "pending" else "pending"
+        return task
+
+@app.delete("/api/tasks/{task_id}")
+def delete_task(task_id: int):
+    """Delete a task"""
+    with _write_lock:
+        index = next((i for i, t in enumerate(tasks) if t["id"] == task_id), None)
+        if index is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        tasks.pop(index)
+    return {"deleted": task_id}
 
 @app.get("/api/dashboard/summary")
 def get_dashboard_summary(
@@ -270,83 +387,108 @@ def get_recent_transactions():
     """Get recent transactions"""
     return recent_transactions
 
+def _filtered_report_orders(warehouse: Optional[str], category: Optional[str],
+                            status: Optional[str], month: Optional[str]) -> list:
+    """Orders matching the global filter bar; shared by the reports endpoints."""
+    filtered = apply_filters(orders, warehouse, category, status)
+    return filter_by_month(filtered, month)
+
+def _quarter_for(order_date: str) -> Optional[tuple]:
+    """Return (year, quarter_number) for an ISO order_date, or None if it can't be parsed.
+
+    Derived from the date itself rather than a hardcoded 2025 lookup, so orders from
+    any year land in the right quarter.
+    """
+    try:
+        year = int(order_date[0:4])
+        month_num = int(order_date[5:7])
+    except (TypeError, ValueError):
+        return None
+    if not 1 <= month_num <= 12:
+        return None
+    return year, (month_num - 1) // 3 + 1
+
 @app.get("/api/reports/quarterly")
-def get_quarterly_reports():
-    """Get quarterly performance reports"""
-    # Calculate quarterly statistics from orders
+def get_quarterly_reports(
+    warehouse: Optional[str] = None,
+    category: Optional[str] = None,
+    status: Optional[str] = None,
+    month: Optional[str] = None
+):
+    """Get quarterly performance reports with optional filtering"""
     quarters = {}
 
-    for order in orders:
-        order_date = order.get('order_date', '')
-        # Determine quarter
-        if '2025-01' in order_date or '2025-02' in order_date or '2025-03' in order_date:
-            quarter = 'Q1-2025'
-        elif '2025-04' in order_date or '2025-05' in order_date or '2025-06' in order_date:
-            quarter = 'Q2-2025'
-        elif '2025-07' in order_date or '2025-08' in order_date or '2025-09' in order_date:
-            quarter = 'Q3-2025'
-        elif '2025-10' in order_date or '2025-11' in order_date or '2025-12' in order_date:
-            quarter = 'Q4-2025'
-        else:
+    for order in _filtered_report_orders(warehouse, category, status, month):
+        key = _quarter_for(order.get('order_date', ''))
+        if key is None:
             continue
 
-        if quarter not in quarters:
-            quarters[quarter] = {
-                'quarter': quarter,
+        if key not in quarters:
+            year, q = key
+            quarters[key] = {
+                'quarter': f'Q{q}-{year}',
                 'total_orders': 0,
                 'total_revenue': 0,
                 'delivered_orders': 0,
-                'avg_order_value': 0
+                'avg_order_value': 0,
+                'fulfillment_rate': 0
             }
 
-        quarters[quarter]['total_orders'] += 1
-        quarters[quarter]['total_revenue'] += order.get('total_value', 0)
+        quarters[key]['total_orders'] += 1
+        quarters[key]['total_revenue'] += order.get('total_value', 0)
         if order.get('status') == 'Delivered':
-            quarters[quarter]['delivered_orders'] += 1
+            quarters[key]['delivered_orders'] += 1
 
     # Calculate averages and fulfillment rate
-    result = []
-    for q, data in quarters.items():
-        if data['total_orders'] > 0:
-            data['avg_order_value'] = round(data['total_revenue'] / data['total_orders'], 2)
-            data['fulfillment_rate'] = round((data['delivered_orders'] / data['total_orders']) * 100, 1)
-        result.append(data)
+    for data in quarters.values():
+        data['total_revenue'] = round(data['total_revenue'], 2)
+        data['avg_order_value'] = round(data['total_revenue'] / data['total_orders'], 2)
+        data['fulfillment_rate'] = round((data['delivered_orders'] / data['total_orders']) * 100, 1)
 
-    # Sort by quarter
-    result.sort(key=lambda x: x['quarter'])
-    return result
+    # Sort chronologically by (year, quarter); a plain string sort on "Qn-YYYY" would
+    # interleave years (Q1-2026 before Q2-2025)
+    return [quarters[key] for key in sorted(quarters)]
 
 @app.get("/api/reports/monthly-trends")
-def get_monthly_trends():
-    """Get month-over-month trends"""
+def get_monthly_trends(
+    warehouse: Optional[str] = None,
+    category: Optional[str] = None,
+    status: Optional[str] = None,
+    month: Optional[str] = None
+):
+    """Get month-over-month trends with optional filtering"""
     months = {}
 
-    for order in orders:
+    for order in _filtered_report_orders(warehouse, category, status, month):
         order_date = order.get('order_date', '')
         if not order_date:
             continue
 
         # Extract month (format: YYYY-MM-DD)
-        month = order_date[:7]  # Gets YYYY-MM
+        month_key = order_date[:7]  # Gets YYYY-MM
 
-        if month not in months:
-            months[month] = {
-                'month': month,
+        if month_key not in months:
+            months[month_key] = {
+                'month': month_key,
                 'order_count': 0,
                 'revenue': 0,
                 'delivered_count': 0
             }
 
-        months[month]['order_count'] += 1
-        months[month]['revenue'] += order.get('total_value', 0)
+        months[month_key]['order_count'] += 1
+        months[month_key]['revenue'] += order.get('total_value', 0)
         if order.get('status') == 'Delivered':
-            months[month]['delivered_count'] += 1
+            months[month_key]['delivered_count'] += 1
 
     # Convert to list and sort
     result = list(months.values())
+    for data in result:
+        data['revenue'] = round(data['revenue'], 2)
     result.sort(key=lambda x: x['month'])
     return result
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    # Loopback by default so the API isn't reachable from other machines on the network
+    # (e.g. shared Wi-Fi); set HOST=0.0.0.0 to expose it deliberately.
+    uvicorn.run(app, host=os.environ.get("HOST", "127.0.0.1"), port=int(os.environ.get("PORT", "8001")))
