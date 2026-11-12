@@ -3,6 +3,7 @@ import './styles/tokens.css'
 // Shared modal family (overlay, panel, buttons, form controls) used by every *Modal.vue
 import './styles/modal.css'
 import { createApp } from 'vue'
+import { initTheme } from './composables/useTheme'
 import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
 import Dashboard from './views/Dashboard.vue'
@@ -23,6 +24,9 @@ const router = createRouter({
     { path: '/reports', component: Reports }
   ]
 })
+
+// Set data-theme on <html> before mounting so components never render with the wrong palette
+initTheme()
 
 const app = createApp(App)
 app.use(router)

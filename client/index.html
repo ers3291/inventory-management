@@ -4,6 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Factory Inventory Management System</title>
+  <!--
+    Runs before CSS/JS modules load so the very first paint uses the saved or OS theme
+    (module scripts are deferred, so main.js alone could leave a light flash in dark mode).
+    useTheme.js re-applies the same logic and owns the state afterwards; keep the key in sync.
+  -->
+  <script>
+    (function () {
+      var theme = null
+      try { theme = localStorage.getItem('app-theme') } catch (e) {}
+      if (theme !== 'light' && theme !== 'dark') {
+        theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      }
+      document.documentElement.dataset.theme = theme
+    })()
+  </script>
 </head>
 <body>
   <div id="app"></div>
