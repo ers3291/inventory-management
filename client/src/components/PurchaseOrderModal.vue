@@ -47,7 +47,7 @@
                 </div>
               </div>
 
-              <div v-if="submitError" class="error" role="alert">{{ submitError }}</div>
+              <div v-if="submitError" ref="submitErrorEl" class="error" role="alert">{{ submitError }}</div>
 
               <form id="po-form" class="po-form" novalidate @submit.prevent="submit">
                 <div class="form-group form-group-wide">
@@ -204,7 +204,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { api } from '../api'
 import { useI18n } from '../composables/useI18n'
 import { formatCurrency, formatCurrencyWithDecimals } from '../utils/currency'
@@ -251,6 +251,7 @@ export default {
     const errors = reactive({})
     const saving = ref(false)
     const submitError = ref(null)
+    const submitErrorEl = ref(null)
 
     // ---- View mode state ----
     const po = ref(null)
@@ -346,6 +347,9 @@ export default {
       } catch (err) {
         submitError.value = errorMessage(err, 'Failed to create purchase order')
         console.error('Failed to create purchase order:', err)
+        // The message sits above the form; the user may have scrolled the body down to the submit area
+        await nextTick()
+        submitErrorEl.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
       } finally {
         saving.value = false
       }
@@ -422,6 +426,7 @@ export default {
       errors,
       saving,
       submitError,
+      submitErrorEl,
       po,
       loading,
       loadError,
@@ -442,7 +447,9 @@ export default {
   max-width: 680px;
 }
 
-.po-summary {
+.modal .po-summary {
+  /* Always three across: needed / available / shortfall read as one row */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding-bottom: var(--space-6);
   margin-bottom: var(--space-6);
   border-bottom: 1px solid var(--color-border-subtle);
@@ -518,7 +525,7 @@ export default {
     grid-template-columns: 1fr;
   }
 
-  .po-summary {
+  .modal .po-summary {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     padding-bottom: var(--space-4);
     margin-bottom: var(--space-4);
