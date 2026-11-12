@@ -1,3 +1,7 @@
+// Design tokens must load before any component styles so var(--*) resolves everywhere
+import './styles/tokens.css'
+// Shared modal family (overlay, panel, buttons, form controls) used by every *Modal.vue
+import './styles/modal.css'
 import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'

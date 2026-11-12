@@ -18,19 +18,19 @@
             <thead>
               <tr>
                 <th>Quarter</th>
-                <th>Total Orders</th>
-                <th>Total Revenue</th>
-                <th>Avg Order Value</th>
-                <th>Fulfillment Rate</th>
+                <th class="num">Total Orders</th>
+                <th class="num">Total Revenue</th>
+                <th class="num">Avg Order Value</th>
+                <th class="num">Fulfillment Rate</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(q, index) in quarterlyData" :key="index">
                 <td><strong>{{ q.quarter }}</strong></td>
-                <td>{{ q.total_orders }}</td>
-                <td>${{ formatNumber(q.total_revenue) }}</td>
-                <td>${{ formatNumber(q.avg_order_value) }}</td>
-                <td>
+                <td class="num">{{ q.total_orders }}</td>
+                <td class="num">${{ formatNumber(q.total_revenue) }}</td>
+                <td class="num">${{ formatNumber(q.avg_order_value) }}</td>
+                <td class="num">
                   <span :class="getFulfillmentClass(q.fulfillment_rate)">
                     {{ q.fulfillment_rate }}%
                   </span>
@@ -56,7 +56,11 @@
                   :title="'$' + formatNumber(month.revenue)"
                 ></div>
               </div>
-              <div class="bar-label">{{ formatMonth(month.month) }}</div>
+              <!-- Label wrapper reserves vertical room; the rotated label inside is absolutely
+                   positioned so its text width never widens the bar column -->
+              <div class="bar-label-slot">
+                <div class="bar-label">{{ formatMonth(month.month) }}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -72,24 +76,24 @@
             <thead>
               <tr>
                 <th>Month</th>
-                <th>Orders</th>
-                <th>Revenue</th>
-                <th>Change</th>
-                <th>Growth Rate</th>
+                <th class="num">Orders</th>
+                <th class="num">Revenue</th>
+                <th class="num">Change</th>
+                <th class="num">Growth Rate</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(month, index) in monthlyData" :key="index">
                 <td><strong>{{ formatMonth(month.month) }}</strong></td>
-                <td>{{ month.order_count }}</td>
-                <td>${{ formatNumber(month.revenue) }}</td>
-                <td>
+                <td class="num">{{ month.order_count }}</td>
+                <td class="num">${{ formatNumber(month.revenue) }}</td>
+                <td class="num">
                   <span v-if="index > 0" :class="getChangeClass(month.revenue, monthlyData[index - 1].revenue)">
                     {{ getChangeValue(month.revenue, monthlyData[index - 1].revenue) }}
                   </span>
                   <span v-else>-</span>
                 </td>
-                <td>
+                <td class="num">
                   <span v-if="index > 0" :class="getChangeClass(month.revenue, monthlyData[index - 1].revenue)">
                     {{ getGrowthRate(month.revenue, monthlyData[index - 1].revenue) }}
                   </span>
@@ -317,172 +321,115 @@ export default {
 </script>
 
 <style scoped>
-.reports {
-  padding: 0;
-}
+/*
+ * Page header, cards, tables, badges, stat cards and loading/error states are styled
+ * globally in App.vue. Only the bar chart and change colours are view-specific here.
+ */
 
-.card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-  margin-bottom: 1.5rem;
-}
-
-.card-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #0f172a;
-  margin: 0;
-}
-
-.reports-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.reports-table th {
-  background: #f8fafc;
-  padding: 0.75rem;
-  text-align: left;
-  font-weight: 600;
-  color: #64748b;
-  border-bottom: 2px solid #e2e8f0;
-}
-
-.reports-table td {
-  padding: 0.75rem;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.reports-table tr:hover {
-  background: #f8fafc;
-}
-
+/* ---------- Monthly revenue bar chart ---------- */
+/* Left padding gives the first rotated label room, since labels hang down-left of each bar */
 .chart-container {
-  padding: 2rem 1rem;
-  min-height: 300px;
+  padding: var(--space-4) 0 0 var(--space-8);
+  overflow: hidden;
 }
 
+/*
+ * Fluid bars: each column is flex 1 1 0 with min-width 0, so 12 columns always share the
+ * card width (no fixed widths). Bar heights stay in px from getBarHeight() (max 200px).
+ */
 .bar-chart {
   display: flex;
   align-items: flex-end;
   justify-content: space-around;
-  height: 250px;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .bar-wrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 1;
-  max-width: 80px;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 5rem;
 }
 
+/* Each column draws its own slice of the x-axis line directly under the bar */
 .bar-container {
   height: 200px;
   display: flex;
   align-items: flex-end;
   width: 100%;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .bar {
   width: 100%;
-  background: linear-gradient(to top, #3b82f6, #60a5fa);
-  border-radius: 4px 4px 0 0;
-  transition: all 0.3s;
+  background: var(--color-primary);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: background-color var(--transition-fast);
   cursor: pointer;
 }
 
 .bar:hover {
-  background: linear-gradient(to top, #2563eb, #3b82f6);
+  background: var(--color-primary-hover);
 }
 
+/* Fixed-height slot under the axis; holds the rotated label without affecting width */
+.bar-label-slot {
+  position: relative;
+  width: 100%;
+  /* ~55px label rotated 45deg drops ~45px, plus the top offset */
+  height: 4.5rem;
+}
+
+/* Right edge anchored to the column centre, rotated -45deg around that point */
 .bar-label {
-  margin-top: 0.5rem;
-  font-size: 0.75rem;
-  color: #64748b;
-  text-align: center;
+  position: absolute;
+  top: var(--space-2);
+  right: 50%;
   transform: rotate(-45deg);
+  transform-origin: right center;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
   white-space: nowrap;
-  margin-top: 1.5rem;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
-  margin-top: 1.5rem;
+/* Narrow screens: columns are ~20px wide, so turn labels vertical to stop them overlapping */
+@media (max-width: 639px) {
+  .bar-chart {
+    gap: var(--space-1);
+  }
+
+  .bar-label-slot {
+    height: 4.5rem;
+  }
+
+  /* Vertical text centred under the bar; rotate(180deg) makes it read bottom-to-top
+     with the end of the label touching the axis */
+  .bar-label {
+    top: var(--space-1);
+    right: auto;
+    left: 50%;
+    writing-mode: vertical-rl;
+    transform: translateX(-50%) rotate(180deg);
+    /* Override the desktop right-edge origin, which would flip the label a full width sideways */
+    transform-origin: center;
+  }
 }
 
-.stat-card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid #3b82f6;
+/* Keep quarter/month names (e.g. Q1-2025, Jan 2025) on one line */
+td strong {
+  white-space: nowrap;
 }
 
-.stat-label {
-  font-size: 0.875rem;
-  color: #64748b;
-  margin-bottom: 0.5rem;
-}
-
-.stat-value {
-  font-size: 1.875rem;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.875rem;
+/* ---------- Month-over-month change ---------- */
+.positive-change {
+  color: var(--color-success);
   font-weight: 500;
 }
 
-.badge.success {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.badge.warning {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.badge.danger {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.positive-change {
-  color: #16a34a;
-  font-weight: 600;
-}
-
 .negative-change {
-  color: #dc2626;
-  font-weight: 600;
-}
-
-.loading {
-  text-align: center;
-  padding: 3rem;
-  color: #64748b;
-}
-
-.error {
-  background: #fee2e2;
-  color: #991b1b;
-  padding: 1rem;
-  border-radius: 8px;
-  margin: 1rem 0;
+  color: var(--color-danger);
+  font-weight: 500;
 }
 </style>

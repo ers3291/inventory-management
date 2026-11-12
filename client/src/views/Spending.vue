@@ -9,12 +9,12 @@
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else>
       <!-- Revenue & Financial KPIs -->
-      <div class="stats-grid-finance">
+      <div class="stats-grid">
         <div class="stat-card revenue-card">
           <div class="stat-label">{{ t('finance.totalRevenue') }}</div>
           <div class="stat-value">{{ formatCurrency(revenueMetrics.totalRevenue) }}</div>
           <div class="stat-change positive">
-            <span class="change-icon">↑</span>
+            <span class="change-icon" aria-hidden="true">↑</span>
             {{ t('finance.fromOrders', { count: revenueMetrics.orderCount }) }}
           </div>
         </div>
@@ -132,7 +132,7 @@
           <div class="card-header">
             <h3 class="card-title">{{ t('finance.transactions.title') }}</h3>
           </div>
-          <div class="transactions-table-container">
+          <div class="table-container transactions-table-container">
             <table class="transactions-table">
               <thead>
                 <tr>
@@ -140,7 +140,7 @@
                   <th>{{ t('finance.transactions.description') }}</th>
                   <th>{{ t('finance.transactions.vendor') }}</th>
                   <th>{{ t('finance.transactions.date') }}</th>
-                  <th class="text-right">{{ t('finance.transactions.amount') }}</th>
+                  <th class="num">{{ t('finance.transactions.amount') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -154,7 +154,7 @@
                   <td class="transaction-description">{{ transaction.description }}</td>
                   <td class="transaction-vendor">{{ transaction.vendor }}</td>
                   <td class="transaction-date">{{ formatDateShort(transaction.date) }}</td>
-                  <td class="transaction-amount text-right">{{ currencySymbol }}{{ transaction.amount.toLocaleString() }}</td>
+                  <td class="transaction-amount num">{{ currencySymbol }}{{ transaction.amount.toLocaleString() }}</td>
                 </tr>
               </tbody>
             </table>
@@ -492,169 +492,169 @@ export default {
 </script>
 
 <style scoped>
+/*
+ * Chart series colours. Procurement/labor/overhead/revenue/costs map to theme tokens;
+ * "operational" needs a fourth hue distinct from primary/success/warning and the
+ * token set has no violet, so it is the one local colour here.
+ */
+.spending {
+  --chart-procurement: var(--color-primary);
+  --chart-operational: var(--color-chart-violet);
+  --chart-labor: var(--color-success);
+  --chart-overhead: var(--color-warning);
+  --chart-revenue: var(--color-text);
+  --chart-costs: var(--color-danger);
+}
+
+/* ---------- KPI cards (layout from global .stats-grid / .stat-card) ---------- */
+.stat-change,
+.stat-meta {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
 .stat-change {
-  margin-top: 0.75rem;
-  font-size: 0.875rem;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--space-1);
 }
 
 .stat-change.positive {
-  color: #059669;
+  color: var(--color-success);
 }
 
 .stat-change.negative {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .change-icon {
-  font-weight: 700;
-  font-size: 1rem;
+  font-weight: 600;
 }
 
-.chart-card {
-  margin-bottom: 1.75rem;
+/* ---------- Chart cards ---------- */
+.chart-card .card-header {
+  flex-wrap: wrap;
 }
 
 .chart-legend {
   display: flex;
-  gap: 1.5rem;
-  font-size: 0.875rem;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #64748b;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
 }
 
 .legend-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-sm);
 }
 
-.legend-dot.procurement { background: #3b82f6; }
-.legend-dot.operational { background: #8b5cf6; }
-.legend-dot.labor { background: #10b981; }
-.legend-dot.overhead { background: #f59e0b; }
-.legend-dot.revenue-color { background: #0f172a; }
-.legend-dot.cost-color { background: #ef4444; }
+.legend-dot.procurement { background: var(--chart-procurement); }
+.legend-dot.operational { background: var(--chart-operational); }
+.legend-dot.labor { background: var(--chart-labor); }
+.legend-dot.overhead { background: var(--chart-overhead); }
+.legend-dot.revenue-color { background: var(--chart-revenue); }
+.legend-dot.cost-color { background: var(--chart-costs); }
 
-.stats-grid-finance {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.revenue-card {
-  border-left: 4px solid #0f172a;
-}
-
-.cost-card {
-  border-left: 4px solid #ef4444;
-}
-
-.profit-card {
-  border-left: 4px solid #3b82f6;
-}
-
-.stat-meta {
-  margin-top: 0.5rem;
-  font-size: 0.813rem;
-  color: #64748b;
-}
-
-.bar-group-revenue {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-  height: 100%;
-}
-
-.revenue-bars {
-  width: 100%;
-  max-width: 80px;
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  align-items: flex-end;
-  height: 100%;
-  padding-bottom: 2rem;
-}
-
-.revenue-bar, .cost-bar {
-  width: 50%;
-  max-width: 30px;
-  border-radius: 6px 6px 0 0;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  min-height: 4px;
-}
-
-.revenue-bar {
-  background: #0f172a;
-}
-
-.cost-bar {
-  background: #ef4444;
-}
-
-.revenue-bar:hover, .cost-bar:hover {
-  opacity: 0.8;
-  transform: scaleY(1.05);
-}
-
+/* 12 month columns need ~560px; narrower cards scroll the chart, not the page */
 .chart-container {
-  padding: 1.5rem 0;
+  overflow-x: auto;
+  padding-top: var(--space-2);
 }
 
 .bar-chart {
   display: flex;
-  gap: 1.5rem;
-  height: 350px;
+  gap: var(--space-4);
+  height: 320px;
+  min-width: 560px;
 }
 
 .y-axis {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding-right: 1rem;
-  font-size: 0.75rem;
-  color: #94a3b8;
-  border-right: 1px solid #e2e8f0;
+  /* Bars reserve --space-8 at the bottom for month labels; align the 0 tick with the baseline */
+  padding: 0 var(--space-3) var(--space-8) 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  border-right: 1px solid var(--color-border);
 }
 
 .chart-area {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: flex-end;
   justify-content: space-around;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
-.bar-group {
+.bar-group,
+.bar-group-revenue {
   display: flex;
   flex-direction: column;
   align-items: center;
   flex: 1;
+  min-width: 0;
   height: 100%;
 }
 
+/* Revenue vs costs: two bars per month */
+.revenue-bars {
+  width: 100%;
+  max-width: 72px;
+  display: flex;
+  gap: var(--space-1);
+  justify-content: center;
+  align-items: flex-end;
+  height: 100%;
+  padding-bottom: var(--space-8);
+}
+
+.revenue-bar,
+.cost-bar {
+  width: 50%;
+  max-width: 28px;
+  min-height: 4px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.revenue-bar {
+  background: var(--chart-revenue);
+}
+
+.cost-bar {
+  background: var(--chart-costs);
+}
+
+.revenue-bar:hover,
+.cost-bar:hover {
+  opacity: 0.8;
+}
+
+/* Cost flow: stacked segments, built bottom-up via column-reverse */
 .stacked-bar {
   width: 100%;
-  max-width: 60px;
+  max-width: 56px;
   display: flex;
   flex-direction: column-reverse;
   align-items: stretch;
   height: 100%;
-  padding-bottom: 2rem;
+  padding-bottom: var(--space-8);
   cursor: pointer;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--transition-fast);
 }
 
 .stacked-bar:hover {
@@ -662,191 +662,164 @@ export default {
 }
 
 .bar-segment {
-  width: 100%;
-  transition: all 0.3s ease;
-  cursor: pointer;
   display: block;
+  width: 100%;
 }
 
+/* column-reverse: first child is the bottom segment, last child the top */
 .bar-segment:first-child {
-  border-radius: 0 0 6px 6px;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
 .bar-segment:last-child {
-  border-radius: 6px 6px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
-.bar-segment.procurement { background: #3b82f6; }
-.bar-segment.operational { background: #8b5cf6; }
-.bar-segment.labor { background: #10b981; }
-.bar-segment.overhead { background: #f59e0b; }
+.bar-segment.procurement { background: var(--chart-procurement); }
+.bar-segment.operational { background: var(--chart-operational); }
+.bar-segment.labor { background: var(--chart-labor); }
+.bar-segment.overhead { background: var(--chart-overhead); }
 
-.bar-segment:hover {
-  opacity: 0.8;
-}
-
+/* Month labels sit inside the bar's reserved bottom padding */
 .bar-label {
-  margin-top: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
+  margin-top: calc(-1 * var(--space-6));
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-text-muted);
 }
 
+/* ---------- Category breakdown + transactions ---------- */
 .two-column-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-  gap: 1.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6);
+}
+
+/* Cards in the grid get spacing from the gap, not their own margin */
+.two-column-grid > .card {
+  margin-bottom: 0;
+}
+
+@media (max-width: 1279px) {
+  .two-column-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .category-list {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
 }
 
 .category-item {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .category-info {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: baseline;
+  gap: var(--space-4);
 }
 
 .category-name {
-  font-weight: 600;
-  color: #0f172a;
+  font-weight: 500;
+  color: var(--color-text);
 }
 
 .category-amount {
-  font-weight: 700;
-  color: #2563eb;
-  font-size: 1.125rem;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 
 .category-bar-container {
   width: 100%;
   height: 8px;
-  background: #f1f5f9;
-  border-radius: 4px;
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-full);
   overflow: hidden;
 }
 
 .category-bar {
   height: 100%;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  border-radius: 4px;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
   transition: width 0.6s ease;
 }
 
 .category-meta {
   display: flex;
   justify-content: space-between;
-  font-size: 0.813rem;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .percentage {
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .change {
-  font-weight: 600;
+  font-weight: 500;
+  color: var(--color-text-muted);
 }
 
 .change.positive {
-  color: #059669;
+  color: var(--color-success);
 }
 
 .change.negative {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
-.transactions-card {
-  display: flex;
-  flex-direction: column;
-}
-
+/* Transactions: scroll vertically inside the card with a sticky header */
 .transactions-table-container {
-  overflow-y: auto;
   max-height: 400px;
-}
-
-.transactions-table {
-  width: 100%;
-  border-collapse: collapse;
+  overflow-y: auto;
 }
 
 .transactions-table thead {
   position: sticky;
   top: 0;
-  background: #f8fafc;
   z-index: 1;
 }
 
 .transactions-table th {
-  text-align: left;
-  padding: 0.625rem 0.75rem;
-  font-weight: 600;
-  color: #475569;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.transactions-table th.text-right {
-  text-align: right;
-}
-
-.transactions-table td {
-  padding: 0.75rem 0.75rem;
-  border-bottom: 1px solid #f1f5f9;
-  font-size: 0.875rem;
+  background: var(--color-surface-muted);
 }
 
 .transactions-table tbody tr {
   cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.transactions-table tbody tr:hover {
-  background: #f8fafc;
-}
-
-.transactions-table tbody tr.clickable-row:hover {
-  background: #eff6ff;
 }
 
 .transaction-id {
-  color: #64748b;
-  font-weight: 500;
-  font-family: 'Monaco', 'Courier New', monospace;
-  font-size: 0.813rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
 .transaction-description {
-  color: #0f172a;
+  color: var(--color-text);
   font-weight: 500;
 }
 
 .transaction-vendor {
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .transaction-date {
-  color: #64748b;
-  font-size: 0.813rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
 }
 
 .transaction-amount {
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.text-right {
-  text-align: right;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
 }
 </style>

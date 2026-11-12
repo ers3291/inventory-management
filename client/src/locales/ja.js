@@ -5,6 +5,11 @@ export default {
     inventory: '在庫',
     orders: '注文',
     finance: '財務',
+    primaryNav: 'メインナビゲーション',
+    collapse: '折りたたむ',
+    collapseSidebar: 'サイドバーを折りたたむ',
+    expandSidebar: 'サイドバーを展開',
+    reports: 'レポート',
     demandForecast: '需要予測',
     companyName: '触媒コンポーネンツ',
     subtitle: '在庫管理システム'
