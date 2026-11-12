@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
+from datetime import date
 from pydantic import BaseModel
 from mock_data import inventory_items, orders, demand_forecasts, backlog_items, spending_summary, monthly_spending, category_spending, recent_transactions, purchase_orders
 
@@ -100,6 +101,7 @@ class BacklogItem(BaseModel):
     days_delayed: int
     priority: str
     has_purchase_order: Optional[bool] = False
+    purchase_order_id: Optional[str] = None
 
 class PurchaseOrder(BaseModel):
     id: str
@@ -173,11 +175,52 @@ def get_backlog():
     result = []
     for item in backlog_items:
         item_dict = dict(item)
-        # Check if this backlog item has a purchase order
-        has_po = any(po["backlog_item_id"] == item["id"] for po in purchase_orders)
-        item_dict["has_purchase_order"] = has_po
+        # Look up this item's purchase order (at most one per backlog item; see create_purchase_order)
+        po = next((po for po in purchase_orders if po["backlog_item_id"] == item["id"]), None)
+        item_dict["has_purchase_order"] = po is not None
+        # The dashboard switches between "Create PO" and "View PO" on this field
+        item_dict["purchase_order_id"] = po["id"] if po else None
         result.append(item_dict)
     return result
+
+@app.post("/api/purchase-orders", response_model=PurchaseOrder, status_code=201)
+def create_purchase_order(request: CreatePurchaseOrderRequest):
+    """Create a purchase order for a backlog item (stored in memory only)"""
+    if not any(item["id"] == request.backlog_item_id for item in backlog_items):
+        raise HTTPException(status_code=404, detail="Backlog item not found")
+    # One PO per backlog item: the UI shows "View PO" once one exists, so a second is a conflict
+    if any(po["backlog_item_id"] == request.backlog_item_id for po in purchase_orders):
+        raise HTTPException(status_code=409, detail="Purchase order already exists for this backlog item")
+    if not request.supplier_name.strip():
+        raise HTTPException(status_code=400, detail="Supplier name is required")
+    if request.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than zero")
+    if request.unit_cost < 0:
+        raise HTTPException(status_code=400, detail="Unit cost cannot be negative")
+
+    po = {
+        # Sequential IDs are safe because POs are never deleted
+        "id": f"PO-{len(purchase_orders) + 1:04d}",
+        "backlog_item_id": request.backlog_item_id,
+        "supplier_name": request.supplier_name.strip(),
+        "quantity": request.quantity,
+        "unit_cost": request.unit_cost,
+        "expected_delivery_date": request.expected_delivery_date,
+        "status": "Pending",
+        "created_date": date.today().isoformat(),
+        "notes": request.notes,
+    }
+    # Appending mutates the list shared with mock_data, so it resets when the server restarts
+    purchase_orders.append(po)
+    return po
+
+@app.get("/api/purchase-orders/{backlog_item_id}", response_model=PurchaseOrder)
+def get_purchase_order_by_backlog_item(backlog_item_id: str):
+    """Get the purchase order for a backlog item"""
+    po = next((po for po in purchase_orders if po["backlog_item_id"] == backlog_item_id), None)
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    return po
 
 @app.get("/api/dashboard/summary")
 def get_dashboard_summary(
