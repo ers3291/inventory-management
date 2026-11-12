@@ -56,6 +56,39 @@ grep "Tool: Bash" .claude/logs/*.log
 - Lints JavaScript/Vue files with `eslint`
 - Blocks commits if linting fails
 
+### 3. Format on Edit (`format-on-edit.sh`)
+
+**Purpose**: Formats every frontend file Claude edits with Prettier, so Claude's output always matches the project style.
+
+**Trigger**: `PostToolUse` on `Edit|Write|MultiEdit`.
+
+**Behavior**:
+- Reads the hook input JSON from stdin and takes `.tool_input.file_path` (Claude Code does not set a `$CLAUDE_FILE_PATH` variable).
+- Only formats `client/src/**/*.{vue,js,css,json}`; everything else is ignored.
+- Uses the pinned Prettier in `client/node_modules` with `client/.prettierrc.json` (no semicolons, single quotes, 120 columns), so it never downloads anything.
+- Always exits 0, so it can't block an edit.
+
+**Enable it** by adding this to `.claude/settings.json` (project, shared) or `.claude/settings.local.json` (just you), or via `/hooks`:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-on-edit.sh" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Requirements**: `jq` and `cd client && npm install` (Prettier is a devDependency).
+
+**Test it**: ask Claude to "Add an extra function to api.js with deliberately messy formatting", and the saved file should come out formatted.
+
 ## Disabling Hooks
 
 To temporarily disable a hook, you can:
