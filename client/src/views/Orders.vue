@@ -41,7 +41,7 @@
                 <th class="col-status">{{ t('orders.table.status') }}</th>
                 <th class="col-date">{{ t('orders.table.orderDate') }}</th>
                 <th class="col-date">{{ t('orders.table.expectedDelivery') }}</th>
-                <th class="col-value">{{ t('orders.table.totalValue') }}</th>
+                <th class="col-value num">{{ t('orders.table.totalValue') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -68,7 +68,7 @@
                 </td>
                 <td class="col-date">{{ formatDate(order.order_date) }}</td>
                 <td class="col-date">{{ formatDate(order.expected_delivery) }}</td>
-                <td class="col-value"><strong>{{ currencySymbol }}{{ order.total_value.toLocaleString() }}</strong></td>
+                <td class="col-value num"><strong>{{ currencySymbol }}{{ order.total_value.toLocaleString() }}</strong></td>
               </tr>
             </tbody>
           </table>
@@ -172,94 +172,96 @@ export default {
 </script>
 
 <style scoped>
-/* Fixed table layout to prevent column shifting */
+/* Fixed layout keeps columns from shifting as rows change. The column widths sum
+   to ~1060px, so on narrow screens the table overflows and scrolls inside
+   .table-container instead of widening the page. */
 .orders-table {
   table-layout: fixed;
   width: 100%;
+  min-width: 1060px;
 }
 
-/* Column widths */
-.col-order-number {
-  width: 130px;
+.col-order-number { width: 150px; }
+.col-customer { width: 180px; }
+.col-items { width: 200px; }
+.col-status { width: 130px; }
+.col-date { width: 140px; }
+.col-value { width: 120px; }
+
+/* IDs and amounts stay on one line */
+td.col-order-number,
+td.col-date,
+td.col-value {
+  white-space: nowrap;
 }
 
-.col-customer {
-  width: 180px;
+.col-order-number strong,
+.col-value strong {
+  color: var(--color-text);
+  font-weight: 600;
 }
 
-.col-items {
-  width: 200px;
-}
-
-.col-status {
-  width: 130px;
-}
-
-.col-date {
-  width: 140px;
-}
-
-.col-value {
-  width: 120px;
-}
-
-/* Items details styling */
+/* Items: native <details> disclosure with a floating list of line items */
 .items-details {
   position: relative;
 }
 
 .items-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   cursor: pointer;
-  color: #3b82f6;
+  color: var(--color-primary);
   font-weight: 500;
   list-style: none;
   user-select: none;
-  display: inline-block;
+  border-radius: var(--radius-sm);
 }
 
 .items-summary::-webkit-details-marker {
   display: none;
 }
 
+/* CSS chevron (right-pointing), rotated down when the disclosure is open */
 .items-summary::before {
-  content: '▶';
-  display: inline-block;
-  margin-right: 0.375rem;
-  font-size: 0.75rem;
-  transition: transform 0.2s;
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--transition);
 }
 
 .items-details[open] .items-summary::before {
-  transform: rotate(90deg);
+  transform: rotate(45deg);
 }
 
 .items-summary:hover {
-  color: #2563eb;
-  text-decoration: underline;
+  color: var(--color-primary-hover);
 }
 
-/* Dropdown container */
 .items-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
-  margin-top: 0.5rem;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  padding: 0.75rem;
   z-index: 10;
+  margin-top: var(--space-2);
   min-width: 300px;
   max-width: 400px;
+  padding: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .item-entry {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.5rem;
-  border-bottom: 1px solid #f1f5f9;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .item-entry:last-child {
@@ -267,13 +269,13 @@ export default {
 }
 
 .item-name {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 500;
-  color: #0f172a;
+  color: var(--color-text);
 }
 
 .item-meta {
-  font-size: 0.813rem;
-  color: #64748b;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 </style>
